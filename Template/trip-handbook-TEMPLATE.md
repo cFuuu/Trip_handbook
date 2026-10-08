@@ -120,7 +120,7 @@
 
 ```js
 var TRIP = {
-  prefix:    "TRIP_",                      // 儲存前綴,每份手冊用不同的一組(例:OS27_)
+  prefix:    "TRIP_",                      // 儲存前綴,每份手冊用不同的一組(例:OS27_);還是 TRIP_ 時頁面上方會跳提醒
   title:     "我的旅行 · N日遊",            // 預設手冊名稱
   dates:     "2027/01/01–01/08",           // 瀏覽器分頁標題
   datesLong: "2027/01/01(五)– 01/08(五)",  // 標題列下方
@@ -143,7 +143,7 @@ var TRIP = {
 | `DAYS` | 每日 `{n, date, wd, area, title, flags[], items[]}` | **整份重寫** |
 | `STAYS` | `name, in, out, nights, who, jp(當地語地址), url/urlLabel, glink(地圖短連結), res/resLabel(訂房代號), code/code2/code3 + Label(密碼,最多三組), memo, crew` | **整份重寫**;沒有的欄位直接省略 |
 | `CREWS` | `{A:{label, legs:[{key, dir, date, no, from, to, dep, arr, dur, tip}]}, B:{…}}` | **重寫**(來自 1.2) |
-| `ROOMPLAN` | 住宿用 `si` 指向 `STAYS` 的索引;代付款項改用 `name/sub`;`parts` 內含 `lbl, n(晚數,代付填 0), frac(比例), ppl(人數), crews("A"/"B"/"AB"), note` | **重寫**(來自 1.4、1.5);代付款項放在陣列最後 |
+| `ROOMPLAN` | 住宿用 `si` 指向 `STAYS` 的索引;代付款項改用 `name/sub`;`at`("MM/DD hh:mm")決定分攤頁的顯示順序,住宿沒寫就用入住日;`parts` 內含 `lbl, n(晚數,代付填 0), frac(比例), ppl(人數), crews("A"/"B"/"AB"), note` | **重寫**(來自 1.4、1.5);旅途中新增的代付款項一律加在陣列最後(手機上改過的總額照陣列位置存),順序交給 `at` |
 | `PACK` | 行李,`[名稱, 說明, 連結?]` | 通用項目可沿用,「這趟的特殊裝備」重寫;Visit Japan Web 那類入境項目依國家換 |
 | `SHOP` | 購物,`{g:分組, d:"Day x", items:[[名稱, 說明]]}` | **重寫** |
 | `COST` | 花費,`{g, d, items:[[名稱, 金額, 說明]]}` | **重寫** |
@@ -438,3 +438,5 @@ console.log('範例:',(t.match(/範例/g)||[]).length,'佔位:',(t.match(/\{[\u4
 | 市中心圖 | 必須有 | 可以不要(刪 `VIEWS.core`、`CORE_PT` 設 `null`) |
 | 緊急、天氣、優惠、導覽頁 | 日本與這趟專屬內容 | 保留版面元件,內容換成 `{…}` 佔位 |
 | 浮動「變更行程」鈕 | 每一頁都看得到(bug) | 只在行程頁(4.14) |
+| 分攤頁順序 | `roomOrder()` 依 `at` 排 | 同,另外住宿沒寫 `at` 時改用入住日 |
+| 前綴防呆 | 無 | `TRIP.prefix` 還是 `TRIP_` 時頁面上方顯示提醒 |

@@ -546,7 +546,8 @@ footer{padding:22px 16px 10px;font-size:13.5px;color:var(--ink-3);line-height:1.
   }
 
   /* 右欄 */
-  .warnbar{grid-area:warn;margin:0 14px 6px;border:1px solid #e0cd93;border-radius:11px}
+  .warns{grid-area:warn}
+  .warnbar{margin:0 14px 6px;border:1px solid #e0cd93;border-radius:11px}
   .warnbar summary{padding:0 13px}
   .warnbar .wbody{padding:0 13px 11px}
   #app > section{grid-area:main;max-width:780px;align-self:start}
@@ -610,6 +611,17 @@ footer{padding:22px 16px 10px;font-size:13.5px;color:var(--ink-3);line-height:1.
     </div>
   </header>
 
+  <div class="warns">
+  <details class="warnbar" id="prefixWarn" hidden>
+    <summary>
+      <svg class="wbico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.2"/><path d="M12 7.9h.02" stroke-width="2.8"/></svg>
+      <b>儲存前綴還是預設值</b>
+    </summary>
+    <div class="wbody">
+      <p>程式最上面 <code>TRIP.prefix</code> 還是 <code>"TRIP_"</code>。同一支手機開兩份前綴相同的手冊，勾選與自訂項目會互相覆蓋。</p>
+      <p><b>解法</b>：改成這趟專用的一組，例如 <code>OS27_</code>，改完這條提示就會消失。</p>
+    </div>
+  </details>
   <details class="warnbar" id="storeWarn" hidden>
     <summary>
       <svg class="wbico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.2"/><path d="M12 7.9h.02" stroke-width="2.8"/></svg>
@@ -621,6 +633,7 @@ footer{padding:22px 16px 10px;font-size:13.5px;color:var(--ink-3);line-height:1.
       <p>想要自動儲存的話，把檔案放到網路空間、用網址開，再「加入主畫面」就正常了。</p>
     </div>
   </details>
+  </div>
 
   <nav class="nav" role="tablist" id="nav">
     <button role="tab" data-sec="days" aria-selected="true">行程</button>
@@ -1112,6 +1125,8 @@ if(hasLS){
 } else {
   var w = document.getElementById("storeWarn"); if(w) w.hidden = false;
 }
+/* 前綴還是範本預設值 → 提醒作者改掉 */
+if(TRIP.prefix === "TRIP_"){ var pw = document.getElementById("prefixWarn"); if(pw) pw.hidden = false; }
 function sGet(k,def){
   try{ var v = hasLS ? localStorage.getItem(TRIP.prefix+k) : mem[k];
        return v==null ? def : JSON.parse(v); }catch(e){ return def; }
@@ -1268,7 +1283,9 @@ var COST = [
 /* ======================= 住宿分攤（台幣） ======================= */
 var ROOMPLAN = [
 /* 住宿：si 指向 STAYS 的第幾筆(從 0 開始)，名稱與日期自動帶入
-   代付款項：不寫 si，改寫 name 與 sub，放在陣列最後面
+   代付款項：不寫 si，改寫 name 與 sub
+   at：排序用的日期時間 "MM/DD hh:mm"；住宿不寫就用 STAYS 的入住日。分攤頁照 at 排，
+       所以代付款項可以隨時加在陣列最後面（手機上改過的總額是照陣列位置存的，只能往後加、不能插隊或刪除）
    parts：lbl 說明、n 晚數(代付填 0)、frac 佔總額比例、ppl 幾人分、crews 哪幾組要分("A"/"B"/"AB")、note 備註
    金額單位台幣；使用者在手機上改總額會即時重算 */
  {si:0, total:12000, parts:[
@@ -1276,9 +1293,24 @@ var ROOMPLAN = [
    {lbl:"第 2 晚(01/02)", n:1, frac:1/2, ppl:3, crews:"AB", note:"全員同住"}
  ]},
  {si:1, total:3000, parts:[{lbl:"1 晚(01/02)", n:1, frac:1, ppl:1, crews:"B", note:"只有 B 組住,全額自付"}]},
- {name:"範例:代付晚餐", sub:"01/02 晚餐・成員甲先代付", total:3000,
+ {name:"範例:代付晚餐", at:"01/02 19:00", sub:"01/02 晚餐・成員甲先代付", total:3000,
   parts:[{lbl:"全員均分", n:0, frac:1, ppl:3, crews:"AB", note:"成員甲代付,其餘的人各還他"}]}
 ];
+/* 分攤頁的顯示順序：照 at 排，沒寫 at 的住宿用入住日，兩者都沒有的排最後。
+   跨年的行程（12/30 → 01/02）字串排序會錯，at 請改寫成 "YYYY/MM/DD hh:mm" */
+function roomOrder(){
+  function key(k){
+    var pl = ROOMPLAN[k], st = (pl.si == null) ? null : STAYS[pl.si];
+    return pl.at || (st && st.in) || "";
+  }
+  var ix = ROOMPLAN.map(function(pl, k){ return k; });
+  ix.sort(function(a, b){
+    var x = key(a), y = key(b);
+    if(!x !== !y) return x ? -1 : 1;
+    return x < y ? -1 : x > y ? 1 : a - b;
+  });
+  return ix;
+}
 function roomTotal(k){
   var st = sGet("roomtotals", {});
   var v = parseFloat(st["t"+k]);
@@ -2450,7 +2482,8 @@ function renderCost(){
 
 function renderRoom(){
   var h = "", mine = 0, all = 0, mineStay = 0, steps = [];
-  ROOMPLAN.forEach(function(pl, k){
+  roomOrder().forEach(function(k){
+    var pl = ROOMPLAN[k];
     var st = (pl.si == null) ? null : STAYS[pl.si];
     if(st && st.crew && st.crew !== crewView) return;
     if(!st && pl.crew && pl.crew !== crewView) return;
